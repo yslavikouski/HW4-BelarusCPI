@@ -1,0 +1,118 @@
+---
+title: "HW4-TimeSeriesData-YS"
+author: "Yaraslau Slavikouski"
+date: "2023-10-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(fpp)
+library(fpp2)
+library(TTR)
+
+library(readxl)
+HW_3_Time_Series_Data_CPI_BLR_YS <- read_excel("C:/Users/pro10/Downloads/HW-3-Time Series Data-CPI(BLR)-YS.xlsx")
+
+#Assign data
+CPI <- HW_3_Time_Series_Data_CPI_BLR_YS
+
+# clean data of NAs (looked up functions)
+?na.omit
+
+CPI <- na.omit(CPI)
+
+#change columns and rows
+CPI2 <- as.data.frame(t(CPI))
+
+#make dataset look a bit nicer
+CPI2 <- CPI2[-1,]
+rownames(CPI2) <- NULL
+colnames(CPI2) <- c('Date','DRef','Index')
+
+### also now looking at the table I think I don't really need Index Reference date column because the reference is always the same - 2022M12 so I will delete this column
+CPI2 <- CPI2[,-2]
+
+
+#Now change chr to factor and num for index
+str(CPI2)
+CPI2$Date <- as.factor(CPI2$Date)
+CPI2$Index <- as.numeric(CPI2$Index)
+str(CPI2)
+
+
+#Trying different models we ran in class on my dataset and explaining their output
+
+plot.default(CPI2$Date, CPI2$Index, xlab = "Time in months from 2018 to 2023", ylab = "CPI Index")
+#This graph simply shows the available data to us over a period of 5 years. Basically, we see a steady rise in Belarus CPI with a sharper spike just a few months in 2022 (might be due beginning of a war in Ukraine and sanctions placed on Belarus)
+
+mean_forecast <- meanf(CPI2$Index, 5)
+plot(mean_forecast, xlab = "Time in months from 2018 to 2023", ylab = "mean CPI Index")
+#This graph shows us mean values of a data set as well as a mean value future forecast that has values at around index of 80 (historical mean).
+
+naive_forecast <- naive(CPI2$Index, 5)
+plot(naive_forecast, xlab = "Time in months from 2018 to 2023", ylab = "naive CPI Index")
+#This graph focuses mostly on the last values in a data set to forecast for the future. Output is roughly an estimate of recent observations
+
+rwf_forecast <- rwf(CPI2$Index, 5)
+rwf_forecast <- rwf(CPI2$Index, 5, drift = TRUE)
+#Random walk model basically focuses on most recent values in a data set and randomly uses them for future forecasts and outputs.
+
+snaive_forecast <- snaive(CPI2$Index,5)
+#This one is similar to naive forecast but also take into account seasonality. It keeps seasonal patterns for the future forecasts using historic trends from season to season.
+
+MA5_forecast <- ma(CPI2$Index, order=5)
+MA9_forecast <- ma(CPI2$Index, order=9)
+#First one takes into account 5 previous observations to make predictions and the second takes into account 9 previous observations/values for predictions. It simply uses average of these 5 (or 9) previous values to forecast future ones.
+
+#plot all in a single chart
+plot(mean_forecast, xlab = "Time in months from 2018 to 2023", ylab = "different measures of CPI Index")
+lines(naive_forecast$mean,col="red")
+lines(rwf_forecast$mean,col="green")
+lines(snaive_forecast$mean,col="black")
+lines(MA5_forecast,col="Pink")
+lines(MA9_forecast,col="Blue")
+#naive forecast almost always underperforms (compared to historic data), MA9 sometimes overperforms and has greater values. Overall, all of them follow very similar pattern. Random walk forecast seems to be following an upward trend and predicts greater indices in the future, compared to other methods.
+
+#Decompose
+ets_forecast <- ets(CPI2$Index)
+plot(ets_forecast, xlab = "Time in months from 2018 to 2023")
+
+ets_forecast$mse
+#Simply shows mean squared error value for this forecast method. MSE is used to measure accuracy of forecasts. The lower the value - the more accurate forecast, so in this case it is quite accurate.
+
+SSE_Simple <- HoltWinters(CPI2$Index, beta=FALSE, gamma=FALSE)
+attributes(SSE_Simple)
+plot(SSE_Simple, xlab = "Time in months from 2018 to 2023")
+#This model considers level, trend, and seasonality of my data set (time series).
+
+forecast_ets_1 <- forecast.ets(ets_forecast, h=5)
+plot(forecast_ets_1, xlab = "Time in months from 2018 to 2023")
+forecast_ets_2 <- forecast(ets_forecast, h=5)
+plot(forecast_ets_2, xlab = "Time in months from 2018 to 2023")
+
+
+#testing accuracy of the models
+accuracy(ets_forecast)
+
+accuracy(forecast_ets_1)
+
+accuracy(forecast_ets_2)
+
+accuracy(mean_forecast)
+
+accuracy(naive_forecast)
+
+accuracy(rwf_forecast)
+
+accuracy(snaive_forecast)
+#Comparing values for all tests, I can say that all ets forecasts have identically low numbers which point to a good accuracy measure. At the same time, mean forecast has the lowest ME value (expectedly) but has quite high RMSE and MAE values which point to inaccuracies in the method. Random walk forecast has the second lowest ME value out of all methods as well as very close to 0 values for other measures - RMSE, MAE, MPE. Compared to Naive model (as a benchmark), random walk forecast still looks more accurate. I think since the data set that I chose has a relatively "steady state" behavior of rising index, it makes this model a lot more accurate. However, there is an upward trend which can make it less accurate. There can also be a little bit of seasonality which makes naive model better again. Considering all of these factors, I think that naive forecast is quite accurate in this case (mostly because random walk model fails due to an upward trend).
+
+plot(rwf_forecast, xlab = "Months from Jan 2018 to Jan 2023", ylab = "Belarus CPI")
+
+plot(naive_forecast, xlab = "Time in months from 2018 to 2023", ylab = "naive CPI Index")
+```
